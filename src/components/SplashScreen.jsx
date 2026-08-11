@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import logo from '../assets/logo.png'
+// 使用 public/ 下的压缩小图（240x240，WebP 4.3KB / PNG 13KB），固定路径不走 hash
+// index.html 中已 preload，浏览器在解析 JS 前就开始下载，首屏立即可用
+const logoWebp = './logo.webp'
+const logoPng = './logo.png'
 
 /**
  * 闪屏页 SplashScreen
@@ -12,8 +15,11 @@ import logo from '../assets/logo.png'
  *   2200 ~2500 —— 300ms 淡出至透明（ease-in）
  *   2500       —— 调用 onComplete，导航到 MainTabs（不可返回）
  *
- * 使用 framer-motion 的 motion.div 控制透明度（等效于 RN 的 Animated API）。
- * 时序由 useEffect + setTimeout 驱动。
+ * 图片优化：
+ *   - 使用 240x240 压缩图（WebP 4.3KB），原 1.3MB 大图不再加载
+ *   - <picture> 双源：WebP 优先，PNG 兼容旧浏览器
+ *   - decoding="async" 不阻塞渲染
+ *   - index.html 中 preload 预加载，首屏立即可用
  */
 export default function SplashScreen({ onComplete }) {
   // 'in' 淡入 → 'hold' 保持 → 'out' 淡出
@@ -51,7 +57,6 @@ export default function SplashScreen({ onComplete }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        // 华文楷体加粗（全局已设，这里显式声明确保覆盖）
         fontFamily: "'STKaiti','KaiTi','华文楷体','楷体',serif",
         fontWeight: 'bold',
       }}
@@ -67,21 +72,27 @@ export default function SplashScreen({ onComplete }) {
           alignItems: 'center',
         }}
       >
-        {/* APP 图标：120x120，圆角 24 */}
-        <img
-          src={logo}
-          alt="轻记Finy"
-          style={{
-            width: 120,
-            height: 120,
-            borderRadius: 24,
-            objectFit: 'cover',
-            WebkitTapHighlightColor: 'transparent',
-            userSelect: 'none',
-            boxShadow: '0 12px 40px rgba(78,205,196,0.18)',
-          }}
-          draggable={false}
-        />
+        {/* APP 图标：120x120，圆角 24，WebP 优先 + PNG 兼容 */}
+        <picture>
+          <source srcSet={logoWebp} type="image/webp" />
+          <img
+            src={logoPng}
+            alt="轻记Finy"
+            width={120}
+            height={120}
+            decoding="async"
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 24,
+              objectFit: 'cover',
+              WebkitTapHighlightColor: 'transparent',
+              userSelect: 'none',
+              boxShadow: '0 12px 40px rgba(78,205,196,0.18)',
+            }}
+            draggable={false}
+          />
+        </picture>
 
         {/* 应用名称：图标下方 30pt，30pt 字号，#4ECDC4，加粗 */}
         <div className="splash-name" style={{ marginTop: 30 }}>
