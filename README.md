@@ -79,36 +79,6 @@ src/
 
 本项目已配置 GitHub Actions 自动部署（见 `.github/workflows/deploy.yml`）。
 
-### 首次部署步骤
-
-1. **创建 GitHub 仓库**（任意名称，如 `finy`），不要勾选初始化 README。
-
-2. **推送代码**：
-   ```bash
-   git init
-   git add .
-   git commit -m "feat: 轻记Finy 初始版本"
-   git branch -M main
-   git remote add origin https://github.com/<你的用户名>/finy.git
-   git push -u origin main
-   ```
-
-3. **启用 GitHub Pages**：
-   - 进入仓库 **Settings → Pages**
-   - **Source** 选择 `GitHub Actions`
-   - 推送后 Actions 会自动构建部署
-
-4. **访问站点**：部署完成后，站点地址为：
-   ```
-   https://<你的用户名>.github.io/<仓库名>/
-   ```
-   首次部署约需 1-2 分钟。
-
-> 后续每次 `push` 到 `main` 分支都会自动重新部署。
-
-## 安装到手机桌面（PWA）
-
-部署成功后，用手机浏览器打开站点地址，按以下步骤添加到桌面：
 
 ### Android（Chrome / Edge）
 
