@@ -1,0 +1,27 @@
+{
+  "name": "qingji",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "轻记 - 一款专为效率而生的轻量级记账应用",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "framer-motion": "^11.3.19",
+    "lucide-react": "^0.427.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^4.0.0",
+    "vite": "^5.4.0"
+  }
+}
