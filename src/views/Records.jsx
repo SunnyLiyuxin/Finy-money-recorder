@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, ChevronDown, Trash2, Check, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Trash2, Check, Plus, RefreshCw } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useToast } from '../components/Toast'
 import { Sheet, EmptyState, Segmented } from '../components/ui'
@@ -12,6 +12,7 @@ import { fenToYuan, withCommas, friendlyDate, monthLabel, todayStr } from '../ut
 import { convertRecordAmount } from '../utils/currency'
 import { activeScheme, sumByType } from '../utils/stats'
 import { ListChecks } from 'lucide-react'
+import { formatUpdateTime } from '../services/exchangeRate'
 
 export default function Records() {
   const store = useStore()
@@ -20,6 +21,7 @@ export default function Records() {
   const [filter, setFilter] = useState('all') // all | expense | income
   const [schemeOpen, setSchemeOpen] = useState(false)
   const [schemeEditorOpen, setSchemeEditorOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [editing, setEditing] = useState(null) // record id
   // 每天的展示币种覆盖：{ [dateStr]: currencyCode }，未设置则跟随主货币 cur
   const [dayCurrency, setDayCurrency] = useState({})
@@ -243,8 +245,56 @@ export default function Records() {
           }}
         >
           <Plus size={18} />
-          新建汇率方案
+          新建汇率方案（实时拉取）
         </button>
+
+        {/* 刷新当前方案为实时汇率 */}
+        <button
+          onClick={async () => {
+            setRefreshing(true)
+            try {
+              await store.refreshActiveSchemeRates()
+              toast.show('已用实时汇率更新当前方案')
+              setSchemeOpen(false)
+            } catch (e) {
+              toast.show('获取实时汇率失败，请稍后重试')
+            } finally {
+              setRefreshing(false)
+            }
+          }}
+          disabled={refreshing}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            padding: '12px 14px',
+            borderRadius: 14,
+            background: 'rgba(0,0,0,0.03)',
+            border: '1px solid rgba(0,0,0,0.06)',
+            width: '100%',
+            color: 'var(--text-secondary)',
+            fontSize: 13,
+            fontWeight: 600,
+            marginTop: 6,
+            opacity: refreshing ? 0.6 : 1,
+          }}
+        >
+          <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
+          {refreshing ? '正在获取实时汇率…' : '刷新当前方案为实时汇率'}
+        </button>
+
+        {/* 当前方案实时更新时间 */}
+        {scheme?.liveUpdatedAt && (
+          <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>
+            实时汇率更新于 {formatUpdateTime(scheme.liveUpdatedAt)}
+          </div>
+        )}
+
+        <style>{`
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          .spin { animation: spin 1s linear infinite; }
+        `}</style>
       </Sheet>
 
       {/* 新建方案编辑器 */}

@@ -12,6 +12,7 @@ import {
 } from '../data/constants'
 import { uid } from '../utils/id'
 import { todayStr, nowTimeStr } from '../utils/format'
+import { fetchLiveRates } from '../services/exchangeRate'
 
 const initialSettings = {
   currency: DEFAULT_CURRENCY,
@@ -40,6 +41,11 @@ export const useStore = create(
       schemes: [DEFAULT_SCHEME],
       photos: [],
       settings: initialSettings,
+
+      // 实时汇率缓存（不持久化，每次进入 App 按需拉取）
+      liveRates: null, // { rates, updatedAt, nextUpdate }
+      liveRatesLoading: false,
+      liveRatesError: null,
 
       // 撤销删除缓存
       _undoRecord: null,
@@ -190,6 +196,42 @@ export const useStore = create(
 
       setActiveScheme: (id) =>
         set((s) => ({ settings: { ...s.settings, activeSchemeId: id } })),
+
+      /**
+       * 拉取实时汇率并缓存到 liveRates。
+       * 不修改任何方案——方案 rates 的更新由 refreshActiveSchemeRates 完成。
+       */
+      fetchLiveRates: async (force = false) => {
+        set({ liveRatesLoading: true, liveRatesError: null })
+        try {
+          const result = await fetchLiveRates(force)
+          set({ liveRates: result, liveRatesLoading: false })
+          return result
+        } catch (e) {
+          set({ liveRatesLoading: false, liveRatesError: e.message || '获取失败' })
+          throw e
+        }
+      },
+
+      /**
+       * 用实时汇率刷新当前激活方案的 rates。
+       * 原理与手动编辑保存完全一致：写入 scheme.rates 后，
+       * 所有记账 / 明细 / 统计的换算立刻按新值计算。
+       */
+      refreshActiveSchemeRates: async () => {
+        const { liveRates } = get()
+        let rates = liveRates?.rates
+        if (!rates) {
+          const fresh = await get().fetchLiveRates(true)
+          rates = fresh.rates
+        }
+        const activeId = get().settings.activeSchemeId
+        get().updateScheme(activeId, {
+          rates,
+          liveUpdatedAt: new Date().toISOString(),
+        })
+        return rates
+      },
 
       // ===== 设置 =====
       updateSettings: (patch) =>
