@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, ChevronDown, Trash2, Check, Plus, RefreshCw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Trash2, Check, Plus, RefreshCw, Camera } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useToast } from '../components/Toast'
 import { Sheet, EmptyState, Segmented } from '../components/ui'
@@ -13,6 +13,7 @@ import { convertRecordAmount } from '../utils/currency'
 import { activeScheme, sumByType } from '../utils/stats'
 import { ListChecks } from 'lucide-react'
 import { formatUpdateTime } from '../services/exchangeRate'
+import PhotoViewer from '../components/PhotoViewer'
 
 export default function Records() {
   const store = useStore()
@@ -405,6 +406,7 @@ function EditRecordSheet({ record, open, onClose }) {
   const [categoryId, setCategoryId] = useState(null)
   const [accountId, setAccountId] = useState(null)
   const [note, setNote] = useState('')
+  const [photoViewIdx, setPhotoViewIdx] = useState(-1) // -1 表示未打开查看器
 
   // 当 record 变化时同步
   useMemo(() => {
@@ -418,6 +420,8 @@ function EditRecordSheet({ record, open, onClose }) {
   }, [record])
 
   if (!record) return null
+
+  const photos = store.getPhotosForRecord(record.id)
 
   const categories = type === TX.EXPENSE ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
 
@@ -537,6 +541,36 @@ function EditRecordSheet({ record, open, onClose }) {
         style={{ width: '100%', padding: 12, borderRadius: 12, background: 'rgba(0,0,0,0.02)', fontSize: 14 }}
       />
 
+      {/* 照片 */}
+      {photos.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Camera size={13} />
+            照片 · {photos.length} 张 · 点击查看大图
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {photos.map((p, i) => (
+              <button
+                key={p.id}
+                onClick={() => setPhotoViewIdx(i)}
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  padding: 0,
+                  border: '1px solid var(--border)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                }}
+              >
+                <img src={p.dataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 操作 */}
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         <button
@@ -557,6 +591,21 @@ function EditRecordSheet({ record, open, onClose }) {
       <div style={{ marginTop: 12, marginLeft: -18, marginRight: -18, marginBottom: -18 }}>
         <NumberPad value={amount} onChange={setAmount} onConfirm={handleSave} confirmLabel="保存" />
       </div>
+
+      {/* 全屏照片查看器 */}
+      <PhotoViewer
+        photos={photos}
+        index={photoViewIdx}
+        onClose={() => setPhotoViewIdx(-1)}
+        onDelete={(photoId) => {
+          store.removePhoto(photoId)
+          toast.show('已删除照片')
+          // 若删完则关闭查看器，否则调整索引
+          const next = photos.filter((p) => p.id !== photoId)
+          if (next.length === 0) setPhotoViewIdx(-1)
+          else if (photoViewIdx >= next.length) setPhotoViewIdx(next.length - 1)
+        }}
+      />
     </Sheet>
   )
 }
