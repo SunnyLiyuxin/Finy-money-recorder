@@ -11,9 +11,10 @@ import { TX, TX_LABEL, EXPENSE_CATEGORIES, INCOME_CATEGORIES, CURRENCY_MAP, CURR
 import { fenToYuan, withCommas, friendlyDate, monthLabel, todayStr } from '../utils/format'
 import { convertRecordAmount } from '../utils/currency'
 import { activeScheme, sumByType } from '../utils/stats'
-import { ListChecks } from 'lucide-react'
+import { ListChecks, Globe } from 'lucide-react'
 import { formatUpdateTime } from '../services/exchangeRate'
 import PhotoViewer from '../components/PhotoViewer'
+import LiveRatesSheet from '../components/LiveRatesSheet'
 
 export default function Records() {
   const store = useStore()
@@ -22,6 +23,7 @@ export default function Records() {
   const [filter, setFilter] = useState('all') // all | expense | income
   const [schemeOpen, setSchemeOpen] = useState(false)
   const [schemeEditorOpen, setSchemeEditorOpen] = useState(false)
+  const [liveRatesOpen, setLiveRatesOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [editing, setEditing] = useState(null) // record id
   // 每天的展示币种覆盖：{ [dateStr]: currencyCode }，未设置则跟随主货币 cur
@@ -187,8 +189,55 @@ export default function Records() {
 
       {/* 方案切换 */}
       <Sheet open={schemeOpen} onClose={() => setSchemeOpen(false)} title="汇率方案">
-        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 12 }}>
-          确认后该方案会出现在明细页下拉栏中，可随时切换查看
+        {/* 实时汇率入口卡片（醒目置顶） */}
+        <button
+          onClick={() => {
+            setSchemeOpen(false)
+            setLiveRatesOpen(true)
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '14px 16px',
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(78,205,196,0.15), rgba(126,212,198,0.08))',
+            border: '1px solid rgba(78,205,196,0.3)',
+            width: '100%',
+            marginBottom: 12,
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <span
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: 'linear-gradient(135deg, #7EDDD7, #4ECDC4)',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(78,205,196,0.35)',
+            }}
+          >
+            <Globe size={22} />
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+              🌐 实时汇率
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+              查看世界实时汇率 · 一键应用
+            </div>
+          </div>
+          <span style={{ fontSize: 11, color: 'var(--color-primary-dark)', fontWeight: 700 }}>查看 →</span>
+        </button>
+
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 10 }}>
+          自定义方案 · 点击切换
         </div>
         {store.schemes.map((s) => {
           const active = s.id === store.settings.activeSchemeId
@@ -302,6 +351,12 @@ export default function Records() {
       <SchemeEditorSheet
         open={schemeEditorOpen}
         onClose={() => setSchemeEditorOpen(false)}
+      />
+
+      {/* 实时汇率详情页 */}
+      <LiveRatesSheet
+        open={liveRatesOpen}
+        onClose={() => setLiveRatesOpen(false)}
       />
 
       {/* 编辑 */}
