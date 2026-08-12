@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, ChevronDown, Trash2, Check, Plus, RefreshCw, Camera } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Trash2, Check, Plus, RefreshCw, Camera, Image as ImageIcon } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useToast } from '../components/Toast'
 import { Sheet, EmptyState, Segmented } from '../components/ui'
@@ -13,6 +13,16 @@ import { convertRecordAmount } from '../utils/currency'
 import { activeScheme, sumByType } from '../utils/stats'
 import { ListChecks, Globe } from 'lucide-react'
 import { formatUpdateTime } from '../services/exchangeRate'
+
+// 读取文件为 dataURL（与记账页一致）
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 import PhotoViewer from '../components/PhotoViewer'
 import LiveRatesSheet from '../components/LiveRatesSheet'
 
@@ -462,6 +472,26 @@ function EditRecordSheet({ record, open, onClose }) {
   const [accountId, setAccountId] = useState(null)
   const [note, setNote] = useState('')
   const [photoViewIdx, setPhotoViewIdx] = useState(-1) // -1 表示未打开查看器
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false)
+
+  // 拍照 / 相册上传 input
+  const cameraRef = useRef(null)
+  const albumRef = useRef(null)
+
+  // 统一文件处理：拍照 / 相册上传共用（与记账页一致）
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    try {
+      const dataUrls = await Promise.all(files.map(readFileAsDataURL))
+      dataUrls.forEach((dataUrl) => store.addPhoto(record.id, dataUrl))
+      toast.show(`已添加 ${files.length} 张照片`)
+    } catch {
+      toast.show('图片读取失败，请重试')
+    }
+    e.target.value = ''
+    setShowPhotoPicker(false)
+  }
 
   // 当 record 变化时同步
   useMemo(() => {
@@ -597,34 +627,73 @@ function EditRecordSheet({ record, open, onClose }) {
       />
 
       {/* 照片 */}
-      {photos.length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Camera size={13} />
-            照片 · {photos.length} 张 · 点击查看大图
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {photos.map((p, i) => (
-              <button
-                key={p.id}
-                onClick={() => setPhotoViewIdx(i)}
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  padding: 0,
-                  border: '1px solid var(--border)',
-                  cursor: 'pointer',
-                  position: 'relative',
-                }}
-              >
-                <img src={p.dataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </button>
-            ))}
-          </div>
+      <div style={{ marginTop: 14 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Camera size={13} />
+          {photos.length > 0 ? `照片 · ${photos.length} 张 · 点击查看大图` : '照片'}
         </div>
-      )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {photos.map((p, i) => (
+            <button
+              key={p.id}
+              onClick={() => setPhotoViewIdx(i)}
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 12,
+                overflow: 'hidden',
+                padding: 0,
+                border: '1px solid var(--border)',
+                cursor: 'pointer',
+                position: 'relative',
+              }}
+            >
+              <img src={p.dataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </button>
+          ))}
+          {/* 添加照片按钮 */}
+          <button
+            onClick={() => setShowPhotoPicker(true)}
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 12,
+              border: '1.5px dashed rgba(78,205,196,0.4)',
+              background: 'rgba(78,205,196,0.06)',
+              color: 'var(--color-primary-dark)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 3,
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            <Camera size={20} />
+            <span style={{ fontSize: 10, fontWeight: 600 }}>添加</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 拍照 input（capture 唤起后置摄像头） */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={handleFiles}
+      />
+      {/* 相册上传 input（无 capture，可选本地图片，支持多选） */}
+      <input
+        ref={albumRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFiles}
+      />
 
       {/* 操作 */}
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
@@ -661,6 +730,106 @@ function EditRecordSheet({ record, open, onClose }) {
           else if (photoViewIdx >= next.length) setPhotoViewIdx(next.length - 1)
         }}
       />
+
+      {/* 拍照 / 上传选择 Sheet（与记账页一致） */}
+      <Sheet open={showPhotoPicker} onClose={() => setShowPhotoPicker(false)} title="添加照片">
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 14, lineHeight: 1.5 }}>
+          可拍照或从相册上传，单笔记录支持多张照片。首次使用时浏览器会请求相机/相册权限，请允许。
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            onClick={() => cameraRef.current?.click()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '16px 18px',
+              borderRadius: 14,
+              background: 'linear-gradient(135deg, rgba(78,205,196,0.10), rgba(78,205,196,0.04))',
+              border: '1px solid rgba(78,205,196,0.25)',
+              width: '100%',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: 'var(--color-primary)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Camera size={22} />
+            </span>
+            <div style={{ textAlign: 'left', flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>拍照</div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                唤起后置摄像头即时拍摄
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => albumRef.current?.click()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '16px 18px',
+              borderRadius: 14,
+              background: 'rgba(0,0,0,0.02)',
+              border: '1px solid rgba(0,0,0,0.06)',
+              width: '100%',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: 'rgba(0,0,0,0.06)',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <ImageIcon size={22} />
+            </span>
+            <div style={{ textAlign: 'left', flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>从相册上传</div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                选择本地图片，支持多选
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {photos.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8 }}>
+              该记录已有 {photos.length} 张
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {photos.map((p, i) => (
+                <div
+                  key={p.id}
+                  style={{ width: 64, height: 64, borderRadius: 10, overflow: 'hidden' }}
+                >
+                  <img src={p.dataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Sheet>
     </Sheet>
   )
 }
