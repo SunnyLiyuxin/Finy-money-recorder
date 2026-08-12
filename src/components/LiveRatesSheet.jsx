@@ -22,6 +22,7 @@ export default function LiveRatesSheet({ open, onClose }) {
   const [error, setError] = useState(null)
   const [rates, setRates] = useState({})
   const [updatedAt, setUpdatedAt] = useState('')
+  const [source, setSource] = useState('')
   const [applying, setApplying] = useState(false)
   const reqSeq = useRef(0) // 防竞态：只认最后一次请求的结果
 
@@ -36,6 +37,7 @@ export default function LiveRatesSheet({ open, onClose }) {
       if (seq !== reqSeq.current) return
       setRates(result.rates || {})
       setUpdatedAt(result.updatedAt || '')
+      setSource(result.source || '')
       // 同步到 store（供其他地方使用）
       store.fetchLiveRates(force).catch(() => {})
     } catch (e) {
@@ -126,20 +128,21 @@ export default function LiveRatesSheet({ open, onClose }) {
           ) : error ? (
             <>
               <WifiOff size={13} color="var(--color-expense)" />
-              <span style={{ color: 'var(--color-expense)' }}>获取失败 · {error}</span>
+              <span style={{ color: 'var(--color-expense)', fontSize: 11 }}>获取失败 · {error}</span>
             </>
           ) : (
             <>
               <Wifi size={13} color="var(--color-primary-dark)" />
               <span style={{ color: 'var(--text-secondary)' }}>
                 {updatedAt ? `更新于 ${formatUpdateTime(updatedAt)}` : '已就绪'}
+                {source ? ` · 源: ${source}` : ''}
               </span>
             </>
           )}
         </div>
 
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6, lineHeight: 1.5 }}>
-          数据源：open.er-api.com · 基于国际真实汇率 · 每日更新
+          多数据源容错：er-api / exchangerate-api / frankfurter · 自动切换可用源 · 每日更新
         </div>
       </div>
 
