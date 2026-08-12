@@ -7,9 +7,12 @@
   <!-- 预加载闪屏 logo（压缩 WebP 4.3KB），浏览器在解析 JS 前就开始下载 -->
   <link rel="preload" as="image" href="./logo.webp" type="image/webp" fetchpriority="high" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="轻记Finy" />
   <meta name="description" content="轻记Finy - 记账 · 拍照 · 换币，Finance easy · 花了什么都清晰" />
+  <!-- CSP：允许 PWA standalone 模式下跨域请求汇率 API -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://open.er-api.com https://v6.exchangerate-api.com https://api.exchangerate-api.com https://api.frankfurter.app https://openexchangerates.org https://data.fixer.io https://cdn.jsdelivr.net https://raw.githubusercontent.com; font-src 'self' data:;" />
   <link rel="manifest" href="./manifest.json" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <title>轻记Finy</title>

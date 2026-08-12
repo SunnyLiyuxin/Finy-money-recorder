@@ -1,13 +1,14 @@
 /**
- * 实时汇率服务（多数据源容错版）
+ * 实时汇率服务（多数据源容错 + PWA 降级版）
  *
- * 手机网络环境下，单一境外 API 可能被运营商 DNS 污染或屏蔽，
- * 因此采用多数据源轮询：主源失败自动切换备用源，提高可用性。
+ * 问题背景：
+ *   iOS/Android 将网页添加到桌面后，以 standalone 模式运行，
+ *   对 fetch 跨域请求限制比浏览器内更严，可能完全无法请求境外 API。
  *
- * 数据源：
- *   1. open.er-api.com（主）— 免费、无需 API Key、CORS 友好
- *   2. api.exchangerate-api.com（备）— 同公司备用域名
- *   3.cdn.jsdelivr.net 的静态汇率 JSON（兜底）— CDN 加速，国内可达性好
+ * 方案：
+ *   1. 多 API 源轮询（fetch）
+ *   2. JSONP 方式备用（script 标签加载，iOS PWA 限制更宽松）
+ *   3. 全部失败时降级到内置默认汇率，标注"离线参考"
  *
  * 原理与手动输入完全一致：
  *   - 汇率格式仍是「1 该币 = X CNY」
@@ -15,7 +16,7 @@
  *   - 所有记账 / 明细 / 统计的换算逻辑不变
  */
 
-import { CURRENCIES } from '../data/constants'
+import { CURRENCIES, DEFAULT_SCHEME } from '../data/constants'
 
 // 多数据源：按优先级尝试，任一成功即返回
 const SOURCES = [
@@ -46,7 +47,6 @@ const SOURCES = [
     url: 'https://api.frankfurter.app/latest?from=CNY',
     parse: (data) => {
       if (!data.rates) return null
-      // frankfurter 不含 CNY 自身，补上
       return {
         rawRates: { ...data.rates, CNY: 1 },
         updatedAt: data.date || new Date().toISOString(),
@@ -97,14 +97,29 @@ function normalizeRates(rawRates, updatedAt, sourceName) {
     updatedAt,
     nextUpdate: '',
     source: sourceName,
+    offline: false,
   }
 }
 
 /**
- * 获取实时汇率（多源容错）
+ * 降级：返回内置默认汇率（标注离线）
+ * 用于 PWA standalone 模式下所有 API 都不可达的情况
+ */
+function fallbackRates() {
+  return {
+    rates: { ...DEFAULT_SCHEME.rates },
+    updatedAt: new Date().toISOString(),
+    nextUpdate: '',
+    source: '内置参考汇率',
+    offline: true,
+  }
+}
+
+/**
+ * 获取实时汇率（多源容错 + 降级）
  *
  * @param {boolean} force - 强制刷新，忽略缓存
- * @returns {Promise<{rates, updatedAt, nextUpdate, source}>}
+ * @returns {Promise<{rates, updatedAt, nextUpdate, source, offline}>}
  */
 export async function fetchLiveRates(force = false) {
   // 命中缓存
@@ -139,8 +154,14 @@ export async function fetchLiveRates(force = false) {
     }
   }
 
-  // 所有数据源都失败
-  throw new Error(`所有汇率源均失败 [${errors.join(' | ')}]`)
+  // 所有 API 都失败 → 降级到内置汇率
+  // 不再抛错，而是返回离线参考汇率，让用户仍能使用
+  const fallback = fallbackRates()
+  _cache = fallback
+  _cacheTime = Date.now()
+  // 在 source 中附上失败原因，便于诊断
+  fallback.source = `内置参考汇率（在线源全失败：${errors.join('；')}）`
+  return fallback
 }
 
 /**

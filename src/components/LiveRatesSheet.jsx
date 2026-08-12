@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { RefreshCw, Wifi, WifiOff, TrendingUp, Globe } from 'lucide-react'
+import { RefreshCw, Wifi, WifiOff, TrendingUp, Globe, CloudOff } from 'lucide-react'
 import { Sheet } from './ui'
 import { useStore } from '../store/useStore'
 import { useToast } from './Toast'
@@ -23,6 +23,7 @@ export default function LiveRatesSheet({ open, onClose }) {
   const [rates, setRates] = useState({})
   const [updatedAt, setUpdatedAt] = useState('')
   const [source, setSource] = useState('')
+  const [offline, setOffline] = useState(false)
   const [applying, setApplying] = useState(false)
   const reqSeq = useRef(0) // 防竞态：只认最后一次请求的结果
 
@@ -38,6 +39,7 @@ export default function LiveRatesSheet({ open, onClose }) {
       setRates(result.rates || {})
       setUpdatedAt(result.updatedAt || '')
       setSource(result.source || '')
+      setOffline(!!result.offline)
       // 同步到 store（供其他地方使用）
       store.fetchLiveRates(force).catch(() => {})
     } catch (e) {
@@ -130,6 +132,13 @@ export default function LiveRatesSheet({ open, onClose }) {
               <WifiOff size={13} color="var(--color-expense)" />
               <span style={{ color: 'var(--color-expense)', fontSize: 11 }}>获取失败 · {error}</span>
             </>
+          ) : offline ? (
+            <>
+              <CloudOff size={13} color="#FF9800" />
+              <span style={{ color: '#FF9800', fontSize: 11 }}>
+                离线参考模式 · 网络不可达，使用内置汇率
+              </span>
+            </>
           ) : (
             <>
               <Wifi size={13} color="var(--color-primary-dark)" />
@@ -142,7 +151,9 @@ export default function LiveRatesSheet({ open, onClose }) {
         </div>
 
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6, lineHeight: 1.5 }}>
-          多数据源容错：er-api / exchangerate-api / frankfurter · 自动切换可用源 · 每日更新
+          {offline
+            ? '桌面小组件模式下网络受限，已降级为内置参考汇率。可在浏览器内打开刷新获取实时数据。'
+            : '多数据源容错：er-api / exchangerate-api / frankfurter · 自动切换可用源 · 每日更新'}
         </div>
       </div>
 
