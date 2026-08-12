@@ -33,10 +33,25 @@ export async function fetchLiveRates(force = false) {
     return _cache
   }
 
-  const res = await fetch(API_BASE, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  })
+  // 加超时控制（8秒），避免移动端网络差时一直转圈
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+  let res
+  try {
+    res = await fetch(API_BASE, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
+  } catch (e) {
+    clearTimeout(timeoutId)
+    if (e.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络后重试')
+    }
+    throw new Error(`网络错误：${e.message || '无法连接汇率服务'}`)
+  }
+  clearTimeout(timeoutId)
 
   if (!res.ok) {
     throw new Error(`汇率服务请求失败 (${res.status})`)

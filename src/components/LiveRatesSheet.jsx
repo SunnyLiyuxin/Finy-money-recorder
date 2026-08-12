@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { RefreshCw, Wifi, WifiOff, TrendingUp, Globe } from 'lucide-react'
 import { Sheet } from './ui'
 import { useStore } from '../store/useStore'
 import { useToast } from './Toast'
 import { CURRENCIES, DEFAULT_SCHEME } from '../data/constants'
-import { formatUpdateTime } from '../services/exchangeRate'
+import { formatUpdateTime, fetchLiveRates as fetchLiveRatesRaw } from '../services/exchangeRate'
 
 /**
  * 实时汇率详情页
@@ -23,26 +23,35 @@ export default function LiveRatesSheet({ open, onClose }) {
   const [rates, setRates] = useState({})
   const [updatedAt, setUpdatedAt] = useState('')
   const [applying, setApplying] = useState(false)
+  const reqSeq = useRef(0) // 防竞态：只认最后一次请求的结果
+
+  // 直接调用底层服务，绕过 store 闭包，避免竞态
+  const loadLiveRates = useCallback(async (force = false) => {
+    const seq = ++reqSeq.current
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await fetchLiveRatesRaw(force)
+      // 仅最后一次请求的结果生效
+      if (seq !== reqSeq.current) return
+      setRates(result.rates || {})
+      setUpdatedAt(result.updatedAt || '')
+      // 同步到 store（供其他地方使用）
+      store.fetchLiveRates(force).catch(() => {})
+    } catch (e) {
+      if (seq !== reqSeq.current) return
+      const msg = e?.message || String(e) || '获取实时汇率失败'
+      setError(msg)
+    } finally {
+      if (seq === reqSeq.current) setLoading(false)
+    }
+  }, [store])
 
   // 打开时自动拉取
   useEffect(() => {
     if (!open) return
     loadLiveRates(true)
-  }, [open])
-
-  const loadLiveRates = async (force = false) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await store.fetchLiveRates(force)
-      setRates(result.rates)
-      setUpdatedAt(result.updatedAt)
-    } catch (e) {
-      setError(e.message || '获取实时汇率失败')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [open, loadLiveRates])
 
   // 一键应用为当前方案
   const handleApply = async () => {
