@@ -92,7 +92,10 @@ export default function Record() {
     }))
 
     const saved = fenToYuan(fen)
-    toast.show(`${draft.type === TX.INCOME ? '已记收入' : '已记支出'} ${symbol}${saved}`, {
+    const hasPhotos = draft.photos.length > 0
+    const typeLabel = draft.type === TX.INCOME ? '已记收入' : '已记支出'
+    const photoLabel = hasPhotos ? ` · 含${draft.photos.length}张照片` : ''
+    toast.show(`✓ ${typeLabel} ${symbol}${saved}${photoLabel}`, {
       duration: 3000,
       action: {
         label: '撤销',
